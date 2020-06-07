@@ -4,14 +4,12 @@ from winsound import *
 from Card import *
 from Player import *
 import random
-
 class TexasHoldemPoker:
     def __init__(self):
         self.window = Tk()
         self.window.title("Texas Holdem Poker")
         self.window.geometry("800x600")
         self.window.configure(bg="green")
-
         self.fontstyle = font.Font(self.window, size=24, weight='bold', family='Consolas')
         self.fontstyle2 = font.Font(self.window, size=16, weight='bold', family='Consolas')
         self.cardDeck = [i for i in range(52)]
@@ -30,11 +28,8 @@ class TexasHoldemPoker:
                       "풀하우스":4, "플러쉬":5, "마운틴":6, "백스트":7, \
                       "스트레이트":8, "트리플":9, "투페어":10, "원페어":11, \
                       "노페어":12}
-        self.symbol = ["♠", "◇", "♡", "♣"]
-
         self.setupLabel()
         self.setupButton()
-
         self.window.mainloop()
     def setupButton(self):
         self.BCheck = Button(self.window, text="check", width=6, height=1, font=self.fontstyle2, \
@@ -51,7 +46,6 @@ class TexasHoldemPoker:
         self.Again = Button(self.window, text="Again", width=6, height=1, font=self.fontstyle2,
                             command=self.pressedAgain)
         self.Again.place(x=700, y=500)
-
         self.Deal['state'] = 'disabled'
         self.Deal['bg'] = 'gray'
         self.Again['state'] = 'disabled'
@@ -73,13 +67,11 @@ class TexasHoldemPoker:
             self.betMoney += self.betMoney * X
             self.LbetMoney.configure(text="$" + str(self.betMoney))
             self.LplayerMoney.configure(text="You have $" + str(self.playerMoney-self.betMoney))
-
             if self.turn != 4:
                 self.Deal["state"] = "active"
                 self.Deal["bg"] = "white"
             PlaySound('sounds/chip.wav', SND_FILENAME)
         else: PlaySound('sounds/wrong.wav', SND_FILENAME)
-
         self.BCheck["state"] = "disabled"
         self.BCheck["bg"] = "gray"
         self.BOne["state"] = "disabled"
@@ -87,16 +79,17 @@ class TexasHoldemPoker:
         self.BDouble["state"] = "disabled"
         self.BDouble["bg"] = "gray"
         if self.turn == 4: self.showResult()
-    def straight(self, tmp):
-        for i in range(13-5+1):
-            if tmp[i+1] and tmp[i+2] and tmp[i+3] and tmp[i+4] and tmp[i+5]:
+    def straight(self, tmp, p):
+        for i in range(13, 4, -1):
+            if tmp[i] and tmp[i-1] and tmp[i-2] and tmp[i-3] and tmp[i-4]:
+                if i - 4 != 1: p.setAdd(str(i))
+                else: p.setAdd(str(1))
                 return True
         return False
     def calcStatus(self, p):
         myStatus = ""
         tmp = []
-        for c in self.fieldCard:
-            tmp.append(c)
+        for c in self.fieldCard: tmp.append(c)
         tmp += p.getCards()
         suitTMP = [0 for _ in range(4)]
         valTMP = [0 for _ in range(14)]    #because of index
@@ -105,56 +98,98 @@ class TexasHoldemPoker:
             valTMP[c.getValue()] += 1
         for i in range(len(suitTMP)):
             if suitTMP[i] >= 5:
-                #p.setAdd(self.symbol[i])
                 myStatus = "플러쉬"
-                if valTMP[10] and valTMP[11] and valTMP[12] and valTMP[13] and valTMP[1]: return "로티플"
-                elif valTMP[1] and valTMP[2] and valTMP[3] and valTMP[4] and valTMP[5]: return "백스플"
-                elif self.straight(valTMP): return "스티플"
+                n = 0
+                for c in tmp:
+                    if c.getX() == i:
+                        if c.getValue() > n or c.getValue() == 1:
+                            if c.getValue() == 1:
+                                n = 1
+                                break
+                            n = c.getValue()
+                p.setAdd(str(n))
+                if valTMP[10] and valTMP[11] and valTMP[12] and valTMP[13] and valTMP[1]:
+                    p.setAdd(str(1))
+                    return "로티플"
+                elif valTMP[1] and valTMP[2] and valTMP[3] and valTMP[4] and valTMP[5]:
+                    p.setAdd(str(1))
+                    return "백스플"
+                elif self.straight(valTMP, p): return "스티플"
         triple, d1, d2 = False, False, False
-        for v in valTMP:
-            if v >= 4: return "포카드"
-            elif v >= 3: triple = True
-            elif v >= 2 and d1 == False: d1 = True
-            elif v >= 2: d2 = True
-            if triple and (d1 or d2): return "풀하우스"
+        a, b, c = 0, 0, 0
+        for i in range(len(valTMP)):
+            if valTMP[i] >= 4:
+                p.setAdd(str(i))
+                return "포카드"
+            elif valTMP[i] >= 3:
+                a = i
+                triple = True
+            elif valTMP[i] >= 2 and d1 == False:
+                b = i
+                d1 = True
+            elif valTMP[i] >= 2:
+                c = i
+                d2 = True
+            if triple and (d1 or d2):
+                if 1 in (a, b, c): p.setAdd(str(1))
+                else: p.setAdd(str(max(a, b, c)))
+                return "풀하우스"
         if myStatus != "": return myStatus
+        p.setAdd(str(1))
         if valTMP[10] and valTMP[11] and valTMP[12] and valTMP[13] and valTMP[1]: return "마운틴"
         if valTMP[1] and valTMP[2] and valTMP[3] and valTMP[4] and valTMP[5]: return "백스트"
-        if self.straight(valTMP): return "스트레이트"
-        if triple: return "트리플"
+        if self.straight(valTMP, p): return "스트레이트"
+        if triple:
+            p.setAdd(str(a))
+            return "트리플"
+        if 1 in (b, c): p.setAdd(str(1))
+        else: p.setAdd(str(max(b, c)))
         if d1 and d2: return "투페어"
         if d1 or d2: return "원페어"
+        n = 0
+        if valTMP[1] > 0:
+            p.setAdd(str(1))
+            return "노페어"
+        else:
+            for i in range(2, len(valTMP)):
+                if valTMP[i] > 0 and i > n: n = i
+        p.setAdd(str(n))
         return "노페어"
     def win(self):
         self.Lstatus.configure(text="You won!!")
         PlaySound('sounds/win.wav', SND_FILENAME)
-        self.playerMoney = self.playerMoney - self.betMoney + self.betMoney * 2
+        self.playerMoney += self.betMoney
     def lose(self):
         self.Lstatus.configure(text="Sorry you lost!")
         PlaySound('sounds/wrong.wav', SND_FILENAME)
-        self.playerMoney = self.playerMoney - self.betMoney
+        self.playerMoney -= self.betMoney
     def draw(self):
-        pass
+        self.Lstatus.configure(text="Push")
+        self.playerMoney = self.playerMoney
     def showResult(self):
         for i in range(2):
             p = PhotoImage(file="cards/" + self.dealer.cards[i].filename())
             self.LcardsDealer[i].configure(image=p)
             self.LcardsDealer[i].image = p
-
         playerStatus = self.calcStatus(self.player)
         dealerStatus = self.calcStatus(self.dealer)
         self.LdealerStatus.configure(text=dealerStatus+self.dealer.getAdd())
         self.LplayerStatus.configure(text=playerStatus+self.player.getAdd())
-
         if self.jokbo.get(playerStatus) < self.jokbo.get(dealerStatus): self.win()
         elif self.jokbo.get(playerStatus) > self.jokbo.get(dealerStatus): self.lose()
         else:
-            pass
-
+            if int(self.player.getAdd()) == 1:
+                if int(self.dealer.getAdd()) == 1: self.draw()
+                else: self.win()
+            else:
+                if int(self.dealer.getAdd()) == 1: self.lose()
+                else:
+                    if int(self.player.getAdd()) > int(self.dealer.getAdd()): self.win()
+                    elif int(self.player.getAdd()) < int(self.dealer.getAdd()): self.lose()
+                    else: self.draw()
         self.betMoney = 0
         self.LbetMoney.configure(text="$" + str(self.betMoney))
         self.LplayerMoney.configure(text="You have $" + str(self.playerMoney-self.betMoney))
-
         self.Again['state'] = 'active'
         self.Again['bg'] = 'white'
     def pressedDeal(self):
@@ -166,18 +201,15 @@ class TexasHoldemPoker:
         self.BDouble["bg"] = "white"
         self.Deal["state"] = "disabled"
         self.Deal["bg"] = "gray"
-
         if self.turn == 0:
             self.hitPlayer(self.player.inHand())
             self.hitDealerDown(self.dealer.inHand())
             self.hitPlayer(self.player.inHand())
             self.hitDealerDown(self.dealer.inHand())
         elif self.turn == 1:
-            for i in range(3):
-                self.setFieldCard()
+            for i in range(3): self.setFieldCard()
         elif self.turn == 2: self.setFieldCard()
         elif self.turn == 3: self.setFieldCard()
-
         self.turn += 1
     def hitPlayer(self, n):
         newCard = Card(self.cardDeck[self.deckN])
@@ -209,11 +241,9 @@ class TexasHoldemPoker:
         PlaySound('sounds/cardFlip1.wav', SND_FILENAME)
     def pressedAgain(self):
         PlaySound('sounds/ding.wav', SND_FILENAME)
-
         self.player.reset()
         self.dealer.reset()
         self.fieldCard.clear()
-
         self.Again['state'] = 'disabled'
         self.Again['bg'] = 'gray'
         self.BCheck['state'] = 'active'
@@ -222,27 +252,20 @@ class TexasHoldemPoker:
         self.BOne['bg'] = 'white'
         self.BDouble['state'] = 'active'
         self.BDouble['bg'] = 'white'
-
-        for l in self.LcardsPlayer:
-            l.destroy()
-        for l in self.LcardsDealer:
-            l.destroy()
-        for l in self.LfieldCard:
-            l.destroy()
+        for l in self.LcardsPlayer: l.destroy()
+        for l in self.LcardsDealer: l.destroy()
+        for l in self.LfieldCard: l.destroy()
         self.LcardsPlayer = []
         self.LcardsDealer = []
         self.LfieldCard = []
-
         self.LplayerStatus["text"] = ""
         self.LdealerStatus["text"] = ""
         self.Lstatus["text"] = ""
-
         self.turn = 0
         self.deckN = 0
         self.betMoney = 10
         self.cardDeck = [i for i in range(52)]
         random.shuffle(self.cardDeck)
-
         self.betMoney = 10
         self.LbetMoney.configure(text="$" + str(self.betMoney))
         self.LplayerMoney.configure(text="You have $" + str(self.playerMoney - self.betMoney))
